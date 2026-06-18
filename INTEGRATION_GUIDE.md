@@ -21,6 +21,7 @@ All patterns described in this guide are drawn from that implementation. Treat i
 ## Table of Contents
 
 - [Reference Implementation](#reference-implementation)
+- [Detection Modes: webRequest vs Navigation-Only](#detection-modes-webrequest-vs-navigation-only)
 - [Supplying Policies](#supplying-policies)
   - [Policy structure](#policy-structure)
   - [Rule Matching Semantics](#rule-matching-semantics)
@@ -32,6 +33,49 @@ All patterns described in this guide are drawn from that implementation. Treat i
   - [eBay Partner Network](#ebay-partner-network)
   - [Target (path-based publisher ID)](#target-path-based-publisher-id)
   - [Mixed networks](#mixed-networks)
+
+---
+
+## Detection Modes: webRequest vs Navigation-Only
+
+The SDK operates in one of two modes depending on the browser it runs in. Mode selection is automatic; no configuration is required.
+
+### webRequest mode (Chrome, Firefox, Edge)
+
+On Chrome, Firefox, and Edge, the SDK registers a `webRequest.onBeforeRequest` listener. This listener fires for every individual HTTP request in the main frame, including server-side 3xx redirect hops. As a result, `redirectChain` in the detection result contains every URL in the chain from the initial affiliate click-tracking hop to the final merchant URL:
+
+```
+redirectChain: [
+  'https://dpbolvw.net/click?...',   // affiliate network hop (caught by onBeforeRequest)
+  'https://www.merchant.com/',       // final destination (caught by onCommitted)
+]
+```
+
+The SDK matches your policies against all URLs in the chain. This is the most complete detection mode.
+
+### Navigation-only mode (Safari)
+
+Safari's `webRequest` stubs are callable but silently drop all listeners. The SDK detects this via `navigator.vendor` and falls back to `webNavigation.onBeforeNavigate` as the buffer source instead.
+
+In this mode, `onBeforeNavigate` fires for the initiating URL (the affiliate link the user clicked), but server-side redirect hops resolve invisibly inside the browser. `onCommitted` fires for the final committed URL. As a result, `redirectChain` contains only two entries:
+
+```
+redirectChain: [
+  'https://dpbolvw.net/click?...',   // entry URL (caught by onBeforeNavigate)
+  'https://www.merchant.com/',       // committed URL (caught by onCommitted)
+]
+```
+
+The intermediate hops are not visible, but affiliate tracking parameters embedded in the entry URL or surviving to the committed URL are still matched normally. Most affiliate networks include enough identifiers in these two URLs for reliable detection.
+
+### What this means for your integration
+
+No code changes are required. The same `checkForAffiliatePatterns(tabId)` call works identically in both modes. The only observable difference is the length and content of `result.redirectChain`:
+
+- On Chrome/Firefox, intermediate redirect hops are present.
+- On Safari, only the entry URL and the committed URL are present.
+
+If your integration inspects `redirectChain` directly (rather than relying on `hasAffiliatePattern` and `matchedPatterns`), be aware that chains will be shorter on Safari and intermediate hops will be absent.
 
 ---
 

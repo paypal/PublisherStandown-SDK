@@ -7,6 +7,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { NavigationTracker } from '../../src/detection/tracker.js';
 import type {
+  BeforeNavigateDetails,
   BeforeRequestDetails,
   CommittedDetails,
   TrackerDeps,
@@ -37,8 +38,8 @@ function makeDeps() {
 }
 
 /** Shorthand: build a BeforeRequestDetails object. */
-function beforeReq(tabId: number, url: string, type = 'main_frame'): BeforeRequestDetails {
-  return { tabId, url, type };
+function beforeReq(tabId: number, url: string, type = 'main_frame', frameId = 0): BeforeRequestDetails {
+  return { tabId, url, type, frameId };
 }
 
 /** Shorthand: build a CommittedDetails object. */
@@ -461,11 +462,17 @@ describe('NavigationTracker: deduplication', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Safari buffer-length heuristic -- EPIC2-002
+// Safari heuristic -- EPIC2-002
+//
+// On Safari, transitionQualifiers is always null. onBeforeRequest fires only
+// once per redirect chain (for the first URL; intermediate hops are opaque).
+// So the realistic scenarios are:
+//   - Direct nav: buffer=[D], committed=D → same URL → user nav, chain=[D]
+//   - Redirect:   buffer=[affiliate], committed=merchant → different URL → redirect, chain=[affiliate,merchant]
 // ---------------------------------------------------------------------------
 
-describe('NavigationTracker: Safari buffer-length heuristic', () => {
-  it('direct nav (buffer=[D], len=1, null qualifiers) is treated as user nav; getChain returns [D]', () => {
+describe('NavigationTracker: Safari heuristic', () => {
+  it('direct nav (buffer=[D], committed=D, null qualifiers) is treated as user nav; chain=[D]', () => {
     const { deps, fireBeforeRequest, fireCommitted } = makeDeps();
     const tracker = new NavigationTracker(deps);
 
@@ -475,30 +482,33 @@ describe('NavigationTracker: Safari buffer-length heuristic', () => {
     expect(tracker.getChain(1)).toEqual(['https://d.com/']);
   });
 
-  it('single-hop redirect (buffer=[A,B], len=2, null qualifiers) is treated as redirect; getChain returns [A,B]', () => {
+  it('redirect (buffer=[affiliate], committed=merchant, null qualifiers) treats as redirect; chain=[affiliate,merchant]', () => {
+    // This is the real Safari case: onBeforeRequest fires once for the affiliate URL,
+    // server redirects silently, onCommitted fires for the merchant URL. Committed URL
+    // differs from buffered URL → redirect detected.
     const { deps, fireBeforeRequest, fireCommitted } = makeDeps();
     const tracker = new NavigationTracker(deps);
 
-    fireBeforeRequest(beforeReq(1, 'https://a.com/'));
-    fireBeforeRequest(beforeReq(1, 'https://b.com/'));
-    fireCommitted(committed(1, 'https://b.com/', null));
-
-    expect(tracker.getChain(1)).toEqual(['https://a.com/', 'https://b.com/']);
-  });
-
-  it('multi-hop redirect (buffer=[A,B,C], len=3, null qualifiers) captures all hops', () => {
-    const { deps, fireBeforeRequest, fireCommitted } = makeDeps();
-    const tracker = new NavigationTracker(deps);
-
-    fireBeforeRequest(beforeReq(1, 'https://a.com/'));
-    fireBeforeRequest(beforeReq(1, 'https://b.com/'));
-    fireBeforeRequest(beforeReq(1, 'https://c.com/'));
-    fireCommitted(committed(1, 'https://c.com/', null));
+    fireBeforeRequest(beforeReq(1, 'https://dpbolvw.net/click-safari-test'));
+    fireCommitted(committed(1, 'https://merchant.com/landing', null));
 
     expect(tracker.getChain(1)).toEqual([
-      'https://a.com/',
-      'https://b.com/',
-      'https://c.com/',
+      'https://dpbolvw.net/click-safari-test',
+      'https://merchant.com/landing',
+    ]);
+  });
+
+  it('afsrc param on committed URL detected on Safari single-hop redirect', () => {
+    // Affiliate param survives to the committed URL even though the hop is invisible.
+    const { deps, fireBeforeRequest, fireCommitted } = makeDeps();
+    const tracker = new NavigationTracker(deps);
+
+    fireBeforeRequest(beforeReq(1, 'https://affiliate.net/click?cjevent=abc123'));
+    fireCommitted(committed(1, 'https://merchant.com/?afsrc=1', null));
+
+    expect(tracker.getChain(1)).toEqual([
+      'https://affiliate.net/click?cjevent=abc123',
+      'https://merchant.com/?afsrc=1',
     ]);
   });
 
@@ -613,6 +623,129 @@ describe('NavigationTracker: destroy()', () => {
       tracker.destroy();
       tracker.destroy();
     }).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Navigation-only mode (onBeforeNavigate instead of onBeforeRequest)
+// ---------------------------------------------------------------------------
+
+/** Creates a TrackerDeps bundle using onBeforeNavigate (no onBeforeRequest). */
+function makeNavOnlyDeps() {
+  const onBeforeNavigateImpl = makeMockEvent<BeforeNavigateDetails>();
+  const onBeforeNavigate = {
+    addListener(cb: (d: BeforeNavigateDetails) => void) {
+      onBeforeNavigateImpl.addListener(cb);
+    },
+    removeListener(cb: (d: BeforeNavigateDetails) => void) {
+      onBeforeNavigateImpl.removeListener(cb);
+    },
+  };
+
+  const onCommitted = makeMockEvent<CommittedDetails>();
+  const onTabRemoved = makeMockEvent<number>();
+
+  return {
+    deps: { onBeforeNavigate, onCommitted, onTabRemoved } satisfies TrackerDeps,
+    fireBeforeNavigate: onBeforeNavigateImpl.fire.bind(onBeforeNavigateImpl),
+    fireCommitted: onCommitted.fire.bind(onCommitted),
+    fireTabRemoved: onTabRemoved.fire.bind(onTabRemoved),
+  };
+}
+
+function beforeNav(tabId: number, url: string, frameId = 0): BeforeNavigateDetails {
+  return { tabId, url, frameId };
+}
+
+describe('NavigationTracker: navigation-only mode', () => {
+  it('buffers onBeforeNavigate URL and produces [affiliate, merchant] on Safari null-qualifiers redirect', () => {
+    const { deps, fireBeforeNavigate, fireCommitted } = makeNavOnlyDeps();
+    const tracker = new NavigationTracker(deps);
+
+    fireBeforeNavigate(beforeNav(1, 'https://dpbolvw.net/click-nav-only'));
+    fireCommitted({ tabId: 1, url: 'https://merchant.com/', frameId: 0, transitionQualifiers: null });
+
+    expect(tracker.getChain(1)).toEqual([
+      'https://dpbolvw.net/click-nav-only',
+      'https://merchant.com/',
+    ]);
+  });
+
+  it('direct nav (beforeNavigate=D, committed=D, null qualifiers) resets to [D]', () => {
+    const { deps, fireBeforeNavigate, fireCommitted } = makeNavOnlyDeps();
+    const tracker = new NavigationTracker(deps);
+
+    fireBeforeNavigate(beforeNav(1, 'https://d.com/'));
+    fireCommitted({ tabId: 1, url: 'https://d.com/', frameId: 0, transitionQualifiers: null });
+
+    expect(tracker.getChain(1)).toEqual(['https://d.com/']);
+  });
+
+  it('direct nav with Chrome [] qualifiers resets chain', () => {
+    const { deps, fireBeforeNavigate, fireCommitted } = makeNavOnlyDeps();
+    const tracker = new NavigationTracker(deps);
+
+    fireBeforeNavigate(beforeNav(1, 'https://merchant.com/'));
+    fireCommitted({ tabId: 1, url: 'https://merchant.com/', frameId: 0, transitionQualifiers: [] });
+
+    expect(tracker.getChain(1)).toEqual(['https://merchant.com/']);
+  });
+
+  it('ignores onBeforeNavigate for non-zero frameId', () => {
+    const { deps, fireBeforeNavigate, fireCommitted } = makeNavOnlyDeps();
+    const tracker = new NavigationTracker(deps);
+
+    fireBeforeNavigate(beforeNav(1, 'https://iframe.com/', 1)); // frameId=1, ignored
+    fireCommitted({ tabId: 1, url: 'https://merchant.com/', frameId: 0, transitionQualifiers: [] });
+
+    expect(tracker.getChain(1)).toEqual(['https://merchant.com/']);
+  });
+
+  it('ignores onBeforeNavigate for tabId < 0', () => {
+    const { deps, fireBeforeNavigate, fireCommitted } = makeNavOnlyDeps();
+    const tracker = new NavigationTracker(deps);
+
+    fireBeforeNavigate(beforeNav(-1, 'https://background.com/'));
+    fireCommitted({ tabId: 1, url: 'https://merchant.com/', frameId: 0, transitionQualifiers: [] });
+
+    expect(tracker.getChain(1)).toEqual(['https://merchant.com/']);
+  });
+
+  it('onTabRemoved clears chain in navigation-only mode', () => {
+    const { deps, fireBeforeNavigate, fireCommitted, fireTabRemoved } = makeNavOnlyDeps();
+    const tracker = new NavigationTracker(deps);
+
+    fireBeforeNavigate(beforeNav(1, 'https://affiliate.net/'));
+    fireCommitted({ tabId: 1, url: 'https://merchant.com/', frameId: 0, transitionQualifiers: null });
+    fireTabRemoved(1);
+
+    expect(tracker.getChain(1)).toEqual([]);
+  });
+
+  it('destroy() removes onBeforeNavigate listener', () => {
+    const { deps, fireBeforeNavigate, fireCommitted } = makeNavOnlyDeps();
+    const tracker = new NavigationTracker(deps);
+
+    tracker.destroy();
+
+    fireBeforeNavigate(beforeNav(1, 'https://affiliate.net/'));
+    fireCommitted({ tabId: 1, url: 'https://merchant.com/', frameId: 0, transitionQualifiers: null });
+
+    expect(tracker.getChain(1)).toEqual([]);
+  });
+
+  it('afsrc param on committed URL is detectable in navigation-only mode', () => {
+    // Affiliate param survives server-side redirect to committed URL.
+    const { deps, fireBeforeNavigate, fireCommitted } = makeNavOnlyDeps();
+    const tracker = new NavigationTracker(deps);
+
+    fireBeforeNavigate(beforeNav(1, 'https://cj.com/click?cjevent=abc'));
+    fireCommitted({ tabId: 1, url: 'https://merchant.com/?afsrc=1', frameId: 0, transitionQualifiers: null });
+
+    expect(tracker.getChain(1)).toEqual([
+      'https://cj.com/click?cjevent=abc',
+      'https://merchant.com/?afsrc=1',
+    ]);
   });
 });
 

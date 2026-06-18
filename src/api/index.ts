@@ -208,13 +208,18 @@ export class StanddownSDK {
   /**
    * Creates a NavigationTracker wired to real browser APIs when available,
    * or a stub tracker with a console warning when webNavigation is absent.
+   *
+   * Uses webRequest mode on Chrome and Firefox (richer chain data: all
+   * intermediate HTTP hops visible). Uses navigation-only mode on Safari
+   * (navigator.vendor check): Safari exposes webRequest stubs that silently
+   * drop listeners, making API-shape probes unreliable.
    */
   private static createTracker(): NavigationTracker {
     const deps = StanddownSDK.tryBuildDeps();
     if (deps === null) {
       console.warn(
-        '[StanddownSDK] webNavigation or webRequest is not available. ' +
-          'Ensure the "webNavigation", "webRequest", and "tabs" permissions are declared in your manifest. ' +
+        '[StanddownSDK] webNavigation is not available. ' +
+          'Ensure the "webNavigation" and "tabs" permissions are declared in your manifest. ' +
           'checkForAffiliatePatterns() will return no-match until navigation events are tracked.',
       );
       return new NavigationTracker();
@@ -225,18 +230,42 @@ export class StanddownSDK {
   /**
    * Attempts to build TrackerDeps from the real browser global APIs.
    *
-   * Returns null if:
-   * - Neither `browser` nor `chrome` is defined (e.g. Node.js / Vitest environment).
-   * - webNavigation, webRequest, or tabs throw (missing manifest permissions).
+   * Uses webRequest mode on Chrome/Firefox. Uses navigation-only mode on Safari
+   * (detected via navigator.vendor) because Safari's webRequest stubs are
+   * callable but silently drop all listeners. Returns null if webNavigation
+   * itself is absent (e.g. Node.js / Vitest environment, missing permissions).
    */
   private static tryBuildDeps(): TrackerDeps | null {
     try {
       const api = StanddownSDK.resolveWebExtApi();
+      // Verify webNavigation is available (required for all modes).
+      const onCommitted = api.webNavigation.onCommitted;
+      const onTabRemoved = api.tabs.onRemoved;
+
+      // Safari (iOS and macOS) exposes webRequest as an accessible object with
+      // callable addListener stubs, but the stubs silently drop all listeners —
+      // no events are ever delivered. navigator.vendor is the only reliable
+      // discriminator: Apple platforms always return "Apple Computer, Inc.",
+      // regardless of manifest permissions or API shape.
+      const isSafari =
+        typeof navigator !== 'undefined' && navigator.vendor === 'Apple Computer, Inc.';
+
+      if (!isSafari) {
+        return {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+          onBeforeRequest: api.webRequest.onBeforeRequest as any,
+          onCommitted,
+          onTabRemoved,
+        };
+      }
+
+      // Safari: use navigation-only mode. onBeforeNavigate captures the entry
+      // URL for each navigation; intermediate server-side hops are invisible but
+      // affiliate tracking parameters typically survive to the committed URL.
       return {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-        onBeforeRequest: api.webRequest.onBeforeRequest as any,
-        onCommitted: api.webNavigation.onCommitted,
-        onTabRemoved: api.tabs.onRemoved,
+        onBeforeNavigate: api.webNavigation.onBeforeNavigate,
+        onCommitted,
+        onTabRemoved,
       };
     } catch {
       return null;

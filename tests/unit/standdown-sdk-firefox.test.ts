@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StanddownSDK } from '../../src/api/index.js';
 import type {
+  BeforeNavigateDetails,
   BeforeRequestDetails,
   CommittedDetails,
 } from '../../src/detection/tracker.js';
@@ -19,9 +20,10 @@ import { makeSpyEvent } from '../helpers/mock-events.js';
 
 describe('StanddownSDK: Firefox browser namespace resolution', () => {
   afterEach(() => {
-    // Restore globalThis.browser to its default absent state after each test.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
     try { delete (globalThis as any).browser; } catch { /* ignore non-configurable */ }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+    try { delete (globalThis as any).navigator; } catch { /* ignore non-configurable */ }
   });
 
   it('registers listeners on browser.* events when browser exposes webNavigation', () => {
@@ -98,5 +100,43 @@ describe('StanddownSDK: Firefox browser namespace resolution', () => {
     expect(result.hasAffiliatePattern).toBe(false);
     expect(result.matchedPatterns).toEqual([]);
     warnSpy.mockRestore();
+  });
+
+  it('uses navigation-only mode on Safari (navigator.vendor = "Apple Computer, Inc.")', () => {
+    // Simulates Safari: webRequest stubs are callable but silently drop listeners.
+    // The SDK detects Safari via navigator.vendor and bypasses webRequest entirely.
+    const mockBrowser = {
+      webNavigation: {
+        onBeforeNavigate: makeSpyEvent<BeforeNavigateDetails>(),
+        onCommitted: makeSpyEvent<CommittedDetails>(),
+      },
+      webRequest: {
+        // Callable stub — same shape as real Safari; must NOT be registered.
+        onBeforeRequest: makeSpyEvent<BeforeRequestDetails>(),
+      },
+      tabs: {
+        onRemoved: makeSpyEvent<number>(),
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+    (globalThis as any).browser = mockBrowser;
+    // Node/Vitest has no navigator global; define one for this test.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+    (globalThis as any).navigator = { vendor: 'Apple Computer, Inc.' };
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const sdk = new StanddownSDK();
+    warnSpy.mockRestore();
+
+    // onBeforeNavigate and onCommitted must be registered; onBeforeRequest must not
+    expect(mockBrowser.webNavigation.onBeforeNavigate.addListener).toHaveBeenCalledTimes(1);
+    expect(mockBrowser.webNavigation.onCommitted.addListener).toHaveBeenCalledTimes(1);
+    expect(mockBrowser.tabs.onRemoved.addListener).toHaveBeenCalledTimes(1);
+    expect(mockBrowser.webRequest.onBeforeRequest.addListener).not.toHaveBeenCalled();
+
+    sdk.destroy();
+    expect(mockBrowser.webNavigation.onBeforeNavigate.removeListener).toHaveBeenCalledTimes(1);
+    expect(mockBrowser.webNavigation.onCommitted.removeListener).toHaveBeenCalledTimes(1);
+    expect(mockBrowser.tabs.onRemoved.removeListener).toHaveBeenCalledTimes(1);
   });
 });

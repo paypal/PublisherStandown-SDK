@@ -332,8 +332,8 @@ function makeLiveTracker() {
 
   return {
     tracker,
-    fireBeforeRequest: (tabId: number, url: string, type = 'main_frame') =>
-      onBeforeRequestImpl.fire({ tabId, url, type }),
+    fireBeforeRequest: (tabId: number, url: string, type = 'main_frame', frameId = 0) =>
+      onBeforeRequestImpl.fire({ tabId, url, type, frameId }),
     fireCommitted: (
       tabId: number,
       url: string,
