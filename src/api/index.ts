@@ -207,19 +207,14 @@ export class StanddownSDK {
 
   /**
    * Creates a NavigationTracker wired to real browser APIs when available,
-   * or a stub tracker with a console warning when webNavigation is absent.
-   *
-   * Uses webRequest mode on Chrome and Firefox (richer chain data: all
-   * intermediate HTTP hops visible). Uses navigation-only mode on Safari
-   * (navigator.vendor check): Safari exposes webRequest stubs that silently
-   * drop listeners, making API-shape probes unreliable.
+   * or a stub tracker with a console warning when webRequest is absent.
    */
   private static createTracker(): NavigationTracker {
     const deps = StanddownSDK.tryBuildDeps();
     if (deps === null) {
       console.warn(
-        '[StanddownSDK] webNavigation is not available. ' +
-          'Ensure the "webNavigation" and "tabs" permissions are declared in your manifest. ' +
+        '[StanddownSDK] webRequest is not available. ' +
+          'Ensure the "webRequest" and "tabs" permissions are declared in your manifest. ' +
           'checkForAffiliatePatterns() will return no-match until navigation events are tracked.',
       );
       return new NavigationTracker();
@@ -230,42 +225,17 @@ export class StanddownSDK {
   /**
    * Attempts to build TrackerDeps from the real browser global APIs.
    *
-   * Uses webRequest mode on Chrome/Firefox. Uses navigation-only mode on Safari
-   * (detected via navigator.vendor) because Safari's webRequest stubs are
-   * callable but silently drop all listeners. Returns null if webNavigation
-   * itself is absent (e.g. Node.js / Vitest environment, missing permissions).
+   * Returns null if:
+   * - Neither `browser` nor `chrome` is defined (e.g. Node.js / Vitest environment).
+   * - webRequest or tabs throw (missing manifest permissions).
    */
   private static tryBuildDeps(): TrackerDeps | null {
     try {
       const api = StanddownSDK.resolveWebExtApi();
-      // Verify webNavigation is available (required for all modes).
-      const onCommitted = api.webNavigation.onCommitted;
-      const onTabRemoved = api.tabs.onRemoved;
-
-      // Safari (iOS and macOS) exposes webRequest as an accessible object with
-      // callable addListener stubs, but the stubs silently drop all listeners —
-      // no events are ever delivered. navigator.vendor is the only reliable
-      // discriminator: Apple platforms always return "Apple Computer, Inc.",
-      // regardless of manifest permissions or API shape.
-      const isSafari =
-        typeof navigator !== 'undefined' && navigator.vendor === 'Apple Computer, Inc.';
-
-      if (!isSafari) {
-        return {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-          onBeforeRequest: api.webRequest.onBeforeRequest as any,
-          onCommitted,
-          onTabRemoved,
-        };
-      }
-
-      // Safari: use navigation-only mode. onBeforeNavigate captures the entry
-      // URL for each navigation; intermediate server-side hops are invisible but
-      // affiliate tracking parameters typically survive to the committed URL.
       return {
-        onBeforeNavigate: api.webNavigation.onBeforeNavigate,
-        onCommitted,
-        onTabRemoved,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+        onHeadersReceived: api.webRequest.onHeadersReceived as any,
+        onTabRemoved: api.tabs.onRemoved,
       };
     } catch {
       return null;
@@ -277,19 +247,19 @@ export class StanddownSDK {
    *
    * Firefox exposes its extension API as `browser` (a Promise-based namespace),
    * while Chrome uses `chrome`. When running in Firefox, `globalThis.browser`
-   * is defined and exposes `webNavigation`; we prefer it over `chrome` to
+   * is defined and exposes `webRequest`; we prefer it over `chrome` to
    * ensure event listeners are registered on the correct namespace.
    *
    * The `any` cast is intentional and necessary: `browser` is not declared in
    * @types/chrome (which only covers the `chrome` namespace), and importing a
    * separate Firefox types package would add a dependency. At runtime, if
-   * `browser` looks like `chrome` (has `webNavigation`), we use it.
+   * `browser` looks like `chrome` (has `webRequest`), we use it.
    */
   private static resolveWebExtApi(): typeof chrome {
     try {
       /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
       const b = (globalThis as any).browser;
-      if (b?.webNavigation) return b as typeof chrome;
+      if (b?.webRequest) return b as typeof chrome;
       /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
     } catch { /* ignore */ }
     return chrome;
