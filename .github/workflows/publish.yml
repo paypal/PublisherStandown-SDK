@@ -20,8 +20,9 @@ jobs:
           node-version: 20
           registry-url: https://npm.pkg.github.com
           scope: "@paypal"
-          cache: npm
 
+      # No committed lockfile: npm install resolves the correct platform-native
+      # rollup binary for the Linux runner (a macOS lockfile omits it — npm/cli#4828).
       - run: npm install
 
       # Publish only when the version in package.json isn't already in the registry.
