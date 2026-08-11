@@ -1,6 +1,6 @@
 # Integration Guide
 
-This guide covers advanced integration scenarios for `@rakuten-rewards/standdown-sdk`. For the quick-start and API overview, see the [README](./README.md).
+This guide covers advanced integration scenarios for `@paypal/standdown-sdk`. For the quick-start and API overview, see the [README](./README.md).
 
 ---
 
@@ -84,8 +84,8 @@ If your integration inspects `redirectChain` directly (rather than relying on `h
 The SDK does not bundle any default affiliate network policies. You must supply the `NetworkPolicy` objects for every affiliate network you want to detect, passing them via `config.policies` at construction time.
 
 ```ts
-import { StanddownSDK } from '@rakuten-rewards/standdown-sdk';
-import type { NetworkPolicy } from '@rakuten-rewards/standdown-sdk';
+import { StanddownSDK } from '@paypal/standdown-sdk';
+import type { NetworkPolicy } from '@paypal/standdown-sdk';
 
 const CJ_POLICY: NetworkPolicy = {
   id: 'cj',
@@ -167,7 +167,7 @@ This creates a gap: the tab that carries evidence of the affiliate activation (t
 The SDK observes every tab automatically; you do not need to filter to visible tabs. Call `checkForAffiliatePatterns` in a `webRequest.onCompleted` listener that runs for every tab, capture any match, and store it against the merchant domain. (`webRequest.onCompleted` fires after the final response, by which point the SDK's tracker has finalised the chain, and it needs no permission beyond `webRequest`. If you already declare `webNavigation`, `webNavigation.onCompleted` works too.)
 
 ```ts
-import { StanddownSDK } from '@rakuten-rewards/standdown-sdk';
+import { StanddownSDK } from '@paypal/standdown-sdk';
 
 const shield = new StanddownSDK({ policies: MY_POLICIES });
 
@@ -199,7 +199,7 @@ The SDK does not manage this session state; it only answers "did this tab see an
 The pattern below is a starting point. It records activations by merchant hostname and checks them when any tab finishes loading:
 
 ```ts
-import { StanddownSDK } from '@rakuten-rewards/standdown-sdk';
+import { StanddownSDK } from '@paypal/standdown-sdk';
 
 const shield = new StanddownSDK({ policies: MY_POLICIES });
 
@@ -257,7 +257,7 @@ The SDK includes an optional audit log that records affiliate detections to `chr
 Use the async factory `StanddownSDK.create()` to instantiate the SDK with the audit log enabled. The factory hydrates in-memory state from `chrome.storage.local` before returning, so `getEventLog()` and `getEventsByDomain()` return accurate results immediately, even after a service worker restart.
 
 ```ts
-import { StanddownSDK } from '@rakuten-rewards/standdown-sdk';
+import { StanddownSDK } from '@paypal/standdown-sdk';
 
 // Instantiate once at service worker startup.
 const shield = await StanddownSDK.create({ policies: MY_POLICIES, enableAuditLog: true });
@@ -270,7 +270,7 @@ const shield = await StanddownSDK.create({ policies: MY_POLICIES, enableAuditLog
 ### Querying the Audit Log
 
 ```ts
-import type { AffiliateEvent } from '@rakuten-rewards/standdown-sdk';
+import type { AffiliateEvent } from '@paypal/standdown-sdk';
 
 // All active (non-expired) entries across every domain
 const log: AffiliateEvent[] = shield.getEventLog();
@@ -319,7 +319,7 @@ If your extension operates on one of the networks you have configured, `checkFor
 Pass your publisher-specific identifiers as `RegExp` patterns when creating the SDK. The SDK tests every URL in the redirect chain against your patterns and sets `result.isOwnAffiliateLink` automatically.
 
 ```ts
-import { StanddownSDK } from '@rakuten-rewards/standdown-sdk';
+import { StanddownSDK } from '@paypal/standdown-sdk';
 
 // Replace these with the publisher-specific parameters assigned to YOUR extension
 // by each affiliate network. The values below are fictional examples.

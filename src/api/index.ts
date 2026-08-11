@@ -21,7 +21,7 @@ import type {
  *
  * @example
  * ```ts
- * import { StanddownSDK } from '@rakuten-rewards/standdown-sdk';
+ * import { StanddownSDK } from '@paypal/standdown-sdk';
  * const shield = new StanddownSDK();
  * const result = shield.checkForAffiliatePatterns(sender.tab.id);
  * if (result.hasAffiliatePattern) { // stand down }

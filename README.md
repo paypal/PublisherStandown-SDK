@@ -1,4 +1,4 @@
-# @rakuten-rewards/standdown-sdk
+# @paypal/standdown-sdk
 
 [![CI](https://github.com/rewards-lifecycle/standdown-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/rewards-lifecycle/standdown-sdk/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
@@ -31,9 +31,9 @@ Zero-dependency TypeScript SDK for detecting affiliate redirect patterns in Mani
 ## Installation
 
 ```bash
-npm install @rakuten-rewards/standdown-sdk
+npm install @paypal/standdown-sdk
 # or
-pnpm add @rakuten-rewards/standdown-sdk
+pnpm add @paypal/standdown-sdk
 ```
 
 ---
@@ -97,8 +97,8 @@ If you enable the optional [Audit Log](#audit-log), add `"storage"` to persist d
 Define your affiliate network policies and pass them at construction. Call `checkForAffiliatePatterns(tabId)` from any existing navigation handler whenever you need to make a stand-down decision for a specific tab:
 
 ```ts
-import { StanddownSDK } from '@rakuten-rewards/standdown-sdk';
-import type { NetworkPolicy } from '@rakuten-rewards/standdown-sdk';
+import { StanddownSDK } from '@paypal/standdown-sdk';
+import type { NetworkPolicy } from '@paypal/standdown-sdk';
 
 const MY_POLICIES: NetworkPolicy[] = [
   {
@@ -151,8 +151,8 @@ The SDK does not bundle any default affiliate network policies. You are responsi
 Each `NetworkPolicy` defines the detection rules for one affiliate network. Policies are validated at initialization; invalid policies are skipped with a `console.warn`. If no policies are loaded, `checkForAffiliatePatterns` will always return no-match and the SDK will emit a `console.warn` to alert you.
 
 ```ts
-import { StanddownSDK } from '@rakuten-rewards/standdown-sdk';
-import type { NetworkPolicy } from '@rakuten-rewards/standdown-sdk';
+import { StanddownSDK } from '@paypal/standdown-sdk';
+import type { NetworkPolicy } from '@paypal/standdown-sdk';
 
 const CJ_POLICY: NetworkPolicy = {
   id: 'cj',
@@ -195,7 +195,7 @@ See [INTEGRATION_GUIDE.md: Supplying Policies](./INTEGRATION_GUIDE.md#supplying-
 ## Inspecting Results
 
 ```ts
-import type { DetectionResult, MatchedPattern } from '@rakuten-rewards/standdown-sdk';
+import type { DetectionResult, MatchedPattern } from '@paypal/standdown-sdk';
 
 const result: DetectionResult = shield.checkForAffiliatePatterns(tabId);
 

@@ -1,10 +1,18 @@
 {
-  "name": "@rakuten-rewards/standdown-sdk",
+  "name": "@paypal/standdown-sdk",
   "version": "0.5.0",
   "description": "Zero-dependency TypeScript SDK for detecting affiliate redirect patterns in browser extensions",
   "author": "Rakuten Rewards",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paypal/PublisherStandown-SDK.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -31,6 +39,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "size": "node scripts/check-bundle-size.mjs",
+    "prepublishOnly": "npm run build",
     "build:extensions": "tsup && tsc --project tsconfig.test-extension.json && cp dist/index.mjs sample-extensions/session-manager/sdk.mjs && cp dist/index.mjs sample-extensions/audit-log/sdk.mjs",
     "test:e2e": "pnpm build:extensions && playwright test",
     "prepare": "husky"
