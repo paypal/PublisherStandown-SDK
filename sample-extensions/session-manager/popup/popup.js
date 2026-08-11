@@ -27,6 +27,8 @@ const matchedPatternsSectionEl = document.getElementById('matched-patterns-secti
 const matchedPatternsEl = document.getElementById('matched-patterns');
 const decisionStatusEl = document.getElementById('decision-status');
 const decisionReasonEl = document.getElementById('decision-reason');
+const sdkDecisionStatusEl = document.getElementById('sdk-decision-status');
+const sdkDecisionReasonEl = document.getElementById('sdk-decision-reason');
 
 /** The tabId this popup is watching; set once on load and reused by the push listener. */
 let currentTabId = null;
@@ -74,6 +76,24 @@ function displayDecision(result) {
     decisionStatusEl.className = 'no-standdown';
   }
   decisionReasonEl.textContent = result.reason ?? '';
+}
+
+/**
+ * Display the live SDK-only stand-down decision for the current tab in the
+ * SDK DECISION section. Unlike displayDecision, this ignores session state —
+ * it reflects only what the SDK detected on this tab's own navigation.
+ *
+ * @param {{ sdkShouldStanddown: boolean, sdkReason: string }} result
+ */
+function displaySdkDecision(result) {
+  if (result.sdkShouldStanddown) {
+    sdkDecisionStatusEl.textContent = 'Stand down';
+    sdkDecisionStatusEl.className = 'standdown';
+  } else {
+    sdkDecisionStatusEl.textContent = 'No stand-down';
+    sdkDecisionStatusEl.className = 'no-standdown';
+  }
+  sdkDecisionReasonEl.textContent = result.sdkReason ?? '';
 }
 
 /**
@@ -191,6 +211,9 @@ function displayError(msg) {
   decisionStatusEl.textContent = '';
   decisionStatusEl.className = '';
   decisionReasonEl.textContent = '';
+  sdkDecisionStatusEl.textContent = '';
+  sdkDecisionStatusEl.className = '';
+  sdkDecisionReasonEl.textContent = '';
   sessionDetectionEl.style.display = 'none';
   displaySessionState(null);
 }
@@ -204,6 +227,7 @@ function checkTab(tabId) {
     }
     displayResult(result);
     displayDecision(result);
+    displaySdkDecision(result);
     // result.session is the session record for this tab's domain, or null.
     displaySessionState(result.session ?? null);
   });
@@ -234,6 +258,7 @@ chrome.runtime.onMessage.addListener((message) => {
   chrome.runtime.sendMessage({ type: 'CHECK_STANDDOWN', tabId: currentTabId }, (result) => {
     if (chrome.runtime.lastError) return;
     displayDecision(result);
+    displaySdkDecision(result);
     displaySessionState(result.session ?? null);
   });
 });

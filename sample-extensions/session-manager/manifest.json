@@ -3,7 +3,7 @@
   "name": "Standdown SDK — Session Manager Sample",
   "version": "0.0.1",
   "description": "Reference MV3 extension demonstrating SessionManager-based activation decisions with @rakuten-rewards/standdown-sdk",
-  "permissions": ["webNavigation", "webRequest", "tabs"],
+  "permissions": ["webRequest"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "service-worker.js",
