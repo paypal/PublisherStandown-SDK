@@ -36,6 +36,11 @@ npm install @rakuten-rewards/standdown-sdk
 pnpm add @rakuten-rewards/standdown-sdk
 ```
 
+**Requirements:** a Manifest V3 browser extension. After installing, declare the
+required permissions (`webRequest` + `tabs`, or `webNavigation` + `tabs` on Safari)
+in your `manifest.json` — see [Manifest V3 Permissions](#manifest-v3-permissions) —
+then follow the [Quick Start](#quick-start) to initialize the SDK.
+
 ---
 
 ## Browser Compatibility
