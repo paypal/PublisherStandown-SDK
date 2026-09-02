@@ -219,7 +219,7 @@ export class StanddownSDK {
     if (deps === null) {
       console.warn(
         '[StanddownSDK] No usable navigation API is available. ' +
-          'Chrome/Firefox/Edge require the "webRequest" and "tabs" permissions; ' +
+          'Chrome/Firefox/Edge require the "webRequest" permission ("tabs" is optional); ' +
           'Safari requires the "webNavigation" and "tabs" permissions. ' +
           'checkForAffiliatePatterns() will return no-match until navigation events are tracked.'
       );

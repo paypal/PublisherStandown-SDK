@@ -36,6 +36,17 @@ npm install @rakuten-rewards/standdown-sdk
 pnpm add @rakuten-rewards/standdown-sdk
 ```
 
+**Requirements:** a Manifest V3 browser extension. After installing, declare the
+required permissions in your `manifest.json`:
+
+- **Chrome / Firefox / Edge:** `webRequest` (plus `host_permissions`). The `tabs`
+  permission is **optional** — the SDK only listens to `tabs.onRemoved` for cleanup
+  and reads no sensitive tab data, so it works without it.
+- **Safari:** `webNavigation` and `tabs`.
+
+See [Manifest V3 Permissions](#manifest-v3-permissions) for full manifest examples,
+then follow the [Quick Start](#quick-start) to initialize the SDK.
+
 ---
 
 ## Browser Compatibility
@@ -57,7 +68,7 @@ The required permissions depend on which browser your extension targets.
 
 ```json
 {
-  "permissions": ["webRequest", "tabs"],
+  "permissions": ["webRequest"],
   "host_permissions": ["<all_urls>"]
 }
 ```
@@ -79,13 +90,13 @@ The required permissions depend on which browser your extension targets.
 }
 ```
 
-`webRequest` (with `host_permissions: ["<all_urls>"]`) enables `onHeadersReceived` observation of the full redirect chain on Chrome, Firefox, and Edge. `webNavigation` is **only** used on Safari (for `onBeforeNavigate` + `onCommitted`); the SDK never touches it on other browsers, so it can be omitted from Chrome/Firefox/Edge-only builds. `tabs` is used for tab lifecycle cleanup (clearing state when a tab closes).
+`webRequest` (with `host_permissions: ["<all_urls>"]`) enables `onHeadersReceived` observation of the full redirect chain on Chrome, Firefox, and Edge. `webNavigation` is **only** used on Safari (for `onBeforeNavigate` + `onCommitted`); the SDK never touches it on other browsers, so it can be omitted from Chrome/Firefox/Edge-only builds. `tabs` is used for tab lifecycle cleanup (clearing state when a tab closes) — the SDK only listens to `tabs.onRemoved` and reads no sensitive tab data, so on **Chrome, Firefox, and Edge the `tabs` permission is optional** and may be omitted (the `onRemoved` event still fires). On **Safari**, declare `tabs` as shown above.
 
 If you enable the optional [Audit Log](#audit-log), add `"storage"` to persist detections across service worker restarts:
 
 ```json
 {
-  "permissions": ["webRequest", "tabs", "storage"],
+  "permissions": ["webRequest", "storage"],
   "host_permissions": ["<all_urls>"]
 }
 ```
@@ -403,7 +414,7 @@ interface PolicyRule {
 
 ## Graceful Degradation
 
-Ensure the navigation permissions for your target browsers are declared in your `manifest.json` (see [Manifest V3 Permissions](#manifest-v3-permissions)): `webRequest` + `tabs` for Chrome/Firefox/Edge, or `webNavigation` + `tabs` for Safari. If the required API is not available at construction time, the SDK logs a warning and initialises a no-op tracker. Affiliate detection will be silently disabled with no user-visible signal. All calls to `checkForAffiliatePatterns` return `{ hasAffiliatePattern: false, matchedPatterns: [], redirectChain: [], detectedAt: null, expiresAt: null, isOwnAffiliateLink: false }` until navigation events can be observed.
+Ensure the navigation permissions for your target browsers are declared in your `manifest.json` (see [Manifest V3 Permissions](#manifest-v3-permissions)): `webRequest` for Chrome/Firefox/Edge (`tabs` optional), or `webNavigation` + `tabs` for Safari. If the required API is not available at construction time, the SDK logs a warning and initialises a no-op tracker. Affiliate detection will be silently disabled with no user-visible signal. All calls to `checkForAffiliatePatterns` return `{ hasAffiliatePattern: false, matchedPatterns: [], redirectChain: [], detectedAt: null, expiresAt: null, isOwnAffiliateLink: false }` until navigation events can be observed.
 
 On Safari, the SDK automatically selects navigation-only mode (using `webNavigation.onBeforeNavigate` + `onCommitted`) regardless of whether `webRequest` is declared. On Chrome/Firefox/Edge it uses `webRequest.onHeadersReceived` and never touches `webNavigation`. You do not need to handle this yourself.
 
