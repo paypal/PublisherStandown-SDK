@@ -68,7 +68,7 @@ The required permissions depend on which browser your extension targets.
 
 ```json
 {
-  "permissions": ["webRequest", "tabs"],
+  "permissions": ["webRequest"],
   "host_permissions": ["<all_urls>"]
 }
 ```
@@ -96,7 +96,7 @@ If you enable the optional [Audit Log](#audit-log), add `"storage"` to persist d
 
 ```json
 {
-  "permissions": ["webRequest", "tabs", "storage"],
+  "permissions": ["webRequest", "storage"],
   "host_permissions": ["<all_urls>"]
 }
 ```
