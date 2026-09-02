@@ -36,16 +36,19 @@ npm install @rakuten-rewards/standdown-sdk
 pnpm add @rakuten-rewards/standdown-sdk
 ```
 
-**Requirements:** a Manifest V3 browser extension. After installing, declare the
-required permissions in your `manifest.json`:
+**Requirements**
 
-- **Chrome / Firefox / Edge:** `webRequest` (plus `host_permissions`). The `tabs`
-  permission is **optional** — the SDK only listens to `tabs.onRemoved` for cleanup
-  and reads no sensitive tab data, so it works without it.
-- **Safari:** `webNavigation` and `tabs`.
+- A **Manifest V3** browser extension.
+- Permissions declared in your `manifest.json`:
+  - **Chrome / Firefox / Edge:**
+    - `webRequest` — **required** (observes the full redirect chain via `onHeadersReceived`)
+    - `host_permissions` — **required** (webRequest only sees hosts you have access to)
+    - `tabs` — **optional** (the SDK only listens to `tabs.onRemoved` for cleanup and reads no sensitive tab data, so it works without it)
+  - **Safari:**
+    - `webNavigation` — **required**
+    - `tabs` — **required**
 
-See [Manifest V3 Permissions](#manifest-v3-permissions) for full manifest examples,
-then follow the [Quick Start](#quick-start) to initialize the SDK.
+See [Manifest V3 Permissions](#manifest-v3-permissions) for full manifest examples, then follow the [Quick Start](#quick-start) to initialize the SDK.
 
 ---
 
