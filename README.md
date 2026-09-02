@@ -414,7 +414,7 @@ interface PolicyRule {
 
 ## Graceful Degradation
 
-Ensure the navigation permissions for your target browsers are declared in your `manifest.json` (see [Manifest V3 Permissions](#manifest-v3-permissions)): `webRequest` + `tabs` for Chrome/Firefox/Edge, or `webNavigation` + `tabs` for Safari. If the required API is not available at construction time, the SDK logs a warning and initialises a no-op tracker. Affiliate detection will be silently disabled with no user-visible signal. All calls to `checkForAffiliatePatterns` return `{ hasAffiliatePattern: false, matchedPatterns: [], redirectChain: [], detectedAt: null, expiresAt: null, isOwnAffiliateLink: false }` until navigation events can be observed.
+Ensure the navigation permissions for your target browsers are declared in your `manifest.json` (see [Manifest V3 Permissions](#manifest-v3-permissions)): `webRequest` for Chrome/Firefox/Edge (`tabs` optional), or `webNavigation` + `tabs` for Safari. If the required API is not available at construction time, the SDK logs a warning and initialises a no-op tracker. Affiliate detection will be silently disabled with no user-visible signal. All calls to `checkForAffiliatePatterns` return `{ hasAffiliatePattern: false, matchedPatterns: [], redirectChain: [], detectedAt: null, expiresAt: null, isOwnAffiliateLink: false }` until navigation events can be observed.
 
 On Safari, the SDK automatically selects navigation-only mode (using `webNavigation.onBeforeNavigate` + `onCommitted`) regardless of whether `webRequest` is declared. On Chrome/Firefox/Edge it uses `webRequest.onHeadersReceived` and never touches `webNavigation`. You do not need to handle this yourself.
 
