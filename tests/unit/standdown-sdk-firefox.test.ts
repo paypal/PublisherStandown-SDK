@@ -46,8 +46,7 @@ describe('StanddownSDK: browser namespace resolution', () => {
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
     (globalThis as any).browser = mockBrowser;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-    (globalThis as any).navigator = { vendor: 'Google Inc.' };
+    Object.defineProperty(globalThis, 'navigator', { value: { vendor: 'Google Inc.' }, configurable: true });
 
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const sdk = new StanddownSDK();
@@ -74,8 +73,7 @@ describe('StanddownSDK: browser namespace resolution', () => {
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
     (globalThis as any).browser = mockBrowser;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-    (globalThis as any).navigator = { vendor: 'Google Inc.' };
+    Object.defineProperty(globalThis, 'navigator', { value: { vendor: 'Google Inc.' }, configurable: true });
 
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const sdk = new StanddownSDK();
@@ -148,8 +146,7 @@ describe('StanddownSDK: browser namespace resolution', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
     (globalThis as any).browser = mockBrowser;
     // Node/Vitest has no navigator global; define one for this test.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-    (globalThis as any).navigator = { vendor: 'Apple Computer, Inc.' };
+    Object.defineProperty(globalThis, 'navigator', { value: { vendor: 'Apple Computer, Inc.' }, configurable: true });
 
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const sdk = new StanddownSDK();
